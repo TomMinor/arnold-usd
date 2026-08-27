@@ -4,6 +4,7 @@
 ## [7.5.4.0] (Unreleased)
 
 - [usd#2652](https://github.com/Autodesk/arnold-usd/issues/2652) - Add setting for accelerated viewport
+- Fix crash at render start caused by registering the AI_LOG_STATUS callback while the render thread is dispatching it
 
 ## [7.5.4.0] (Unreleased)
 
