@@ -138,8 +138,8 @@ HdArnoldRenderParam::Status HdArnoldRenderParam::UpdateRender()
                 _paused.store(false, std::memory_order_release);
                 if (!_debugScene.empty())
                     WriteDebugScene();
+                StartRenderMsgLog();
                 AiRenderRestart(_delegate->GetRenderSession());
-                RestartRenderMsgLog();
                 
                 ResetStartTimer();
 
@@ -162,8 +162,8 @@ HdArnoldRenderParam::Status HdArnoldRenderParam::UpdateRender()
             if (needsRestart) {
                 if (!_debugScene.empty())
                     WriteDebugScene();
+                StartRenderMsgLog();
                 AiRenderRestart(_delegate->GetRenderSession());
-                RestartRenderMsgLog();
                 ResetStartTimer();
             } else if (!paused) {
                 AiRenderResume(_delegate->GetRenderSession());
@@ -217,9 +217,9 @@ HdArnoldRenderParam::Status HdArnoldRenderParam::UpdateRender()
             }
             if (!_debugScene.empty())
                 WriteDebugScene();
+            StartRenderMsgLog();
             AiRenderBegin(_delegate->GetRenderSession());
             ResetStartTimer();
-            StartRenderMsgLog();
             return Status::Converging;
 
         default:
@@ -380,14 +380,13 @@ void HdArnoldRenderParam::StartRenderMsgLog()
 
     // The "Status" logs mask was introduced in Arnold 7.1.3.0
 #if ARNOLD_VERSION_NUM >= 70103
-    // Deregister any previously registered callback before installing a new
-    // one. Otherwise repeated Start/Start sequences (without an intervening
-    // Stop) would overwrite `_msgLogCallback`, leaking the previous handle:
-    // the callback function would remain registered with Arnold but we'd no
-    // longer hold a handle to deregister it.
+    // Registering is a no-op once we already hold a handle. Re-registering would mean deregistering first, and
+    // mutating Arnold's log-callback list while a render thread is dispatching it can make that thread call a
+    // half-written entry -- a null function pointer -- on the first "initializing" status message. Callers must
+    // therefore register BEFORE AiRenderBegin()/AiRenderRestart(), and only StopRenderMsgLog() (called when the
+    // render thread has exited) releases the handle, so there is no leak to guard against here.
     if (_msgLogCallback >= 0) {
-        AiMsgDeregisterCallback(static_cast<unsigned int>(_msgLogCallback));
-        _msgLogCallback = -1;
+        return;
     }
     _msgLogCallback = static_cast<int>(AiMsgRegisterCallback(_MsgStatusCallback, AI_LOG_STATUS, this));
 #endif
@@ -399,12 +398,6 @@ void HdArnoldRenderParam::StopRenderMsgLog()
         AiMsgDeregisterCallback(static_cast<unsigned int>(_msgLogCallback));
         _msgLogCallback = -1;
     }
-}
-
-void HdArnoldRenderParam::RestartRenderMsgLog()
-{
-    StopRenderMsgLog();
-    StartRenderMsgLog();
 }
 
 std::string HdArnoldRenderParam::GetRenderStatusString() const

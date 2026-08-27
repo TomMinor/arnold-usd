@@ -153,14 +153,12 @@ public:
     /// Arnold scene to a file, just before it's rendered
     void WriteDebugScene() const;
 
-    /// Enable the AiMsg callback
+    /// Enable the AiMsg callback. Must be called before AiRenderBegin()/AiRenderRestart(), never while a render
+    /// thread is running: see StartRenderMsgLog() for why. Does nothing if the callback is already registered.
     void StartRenderMsgLog();
 
-    /// Disable the AiMsg callback
+    /// Disable the AiMsg callback. Only safe once the render thread has exited.
     void StopRenderMsgLog();
-
-    /// Restart the AiMsg callback
-    void RestartRenderMsgLog();
 
     /// Retrieve the last Arnold status message (threadsafe)
     ///
